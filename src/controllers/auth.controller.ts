@@ -1,13 +1,13 @@
-import type { Request, Response } from "express";
-import prisma from "../db/prisma.js";
-import z from "zod";
-import RegisterSchema from "../schemas/auth/register.schema.js";
-import raiseZodErrors from "../helpers/raise-zod-error.js";
-import raiseServerError from "../helpers/raise-server-error.js";
 import bcrypt from "bcrypt";
-import LoginSchema from "../schemas/auth/login.schema.js";
+import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { AUTH_COOKIE, REFRESH_COOKIE } from "../constants/index.js";
+import z from "zod";
+import { REFRESH_COOKIE } from "../constants/index.js";
+import prisma from "../db/prisma.js";
+import raiseServerError from "../helpers/raise-server-error.js";
+import raiseZodErrors from "../helpers/raise-zod-error.js";
+import LoginSchema from "../schemas/auth/login.schema.js";
+import RegisterSchema from "../schemas/auth/register.schema.js";
 
 export const userRegister = async (req: Request, res: Response) => {
   try {
@@ -50,7 +50,7 @@ export const userRegister = async (req: Request, res: Response) => {
       message: "Account created successfully.",
     });
   } catch (error) {
-    raiseServerError(res, error);
+    return raiseServerError(res, error);
   }
 };
 
@@ -125,6 +125,73 @@ export const userLogin = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    raiseServerError(res, error);
+    return raiseServerError(res, error);
+  }
+};
+
+export const refreshAccessToken = async (req: Request, res: Response) => {
+  try {
+    const refreshToken = req.cookies[REFRESH_COOKIE];
+
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token required.",
+      });
+    }
+
+    const decoded = jwt.verify(
+      refreshToken,
+      process.env.JWT_REFRESH_SECRET!,
+    ) as { id: string; role: string };
+
+    const user = await prisma.user.findUnique({
+      where: {
+        id: decoded.id,
+      },
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid refresh token.",
+      });
+    }
+
+    const accessToken = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      process.env.JWT_SECRET!,
+      {
+        expiresIn: "1d",
+      },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Access token refreshed successfully.",
+      data: {
+        accessToken,
+      },
+    });
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({
+        success: false,
+        message: "Refresh token expired. Please login again.",
+      });
+    }
+
+    if (error instanceof jwt.JsonWebTokenError) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid refresh token.",
+      });
+    }
+
+    return raiseServerError(res, error);
   }
 };
