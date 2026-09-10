@@ -8,6 +8,7 @@ import raiseServerError from "../helpers/raise-server-error.js";
 import raiseZodErrors from "../helpers/raise-zod-error.js";
 import LoginSchema from "../schemas/auth/login.schema.js";
 import RegisterSchema from "../schemas/auth/register.schema.js";
+import type { JWT_Payload } from "../middlewares/auth.middleware.js";
 
 export const userRegister = async (req: Request, res: Response) => {
   try {
@@ -143,7 +144,7 @@ export const refreshAccessToken = async (req: Request, res: Response) => {
     const decoded = jwt.verify(
       refreshToken,
       process.env.JWT_REFRESH_SECRET!,
-    ) as { id: string; role: string };
+    ) as JWT_Payload;
 
     const user = await prisma.user.findUnique({
       where: {
