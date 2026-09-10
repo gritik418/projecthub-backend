@@ -2,7 +2,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
 
     container_name: projecthub-api
     ports:
@@ -10,3 +10,19 @@ services:
 
     env_file:
       - .env
+
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    container_name: projecthub-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=projecthub
+      - POSTGRES_PASSWORD=project123
+      - POSTGRES_DB=projecthub
+
+    restart: unless-stopped
