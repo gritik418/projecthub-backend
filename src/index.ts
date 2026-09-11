@@ -4,10 +4,17 @@ import userRoutes from "./routes/user.routes.js";
 import projectRoutes from "./routes/project.routes.js";
 import clientRoutes from "./routes/client.routes.js";
 import cookieParser from "cookie-parser";
+import cors from "cors";
 
 const app = express();
 const port = process.env.PORT || 8000;
 
+app.use(
+  cors({
+    origin: ["http://localhost:5173"],
+    credentials: true,
+  }),
+);
 app.use(express.json());
 app.use(cookieParser());
 

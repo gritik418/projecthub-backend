@@ -80,6 +80,21 @@ export const getProjects = async (req: Request, res: Response) => {
         orderBy: {
           updatedAt: "desc",
         },
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          client: true,
+          _count: {
+            select: {
+              tasks: true,
+            },
+          },
+        },
       });
     } else if (userRole === UserRole.PROJECT_MANAGER) {
       projects = await prisma.project.findMany({
@@ -88,6 +103,21 @@ export const getProjects = async (req: Request, res: Response) => {
         },
         orderBy: {
           updatedAt: "desc",
+        },
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          client: true,
+          _count: {
+            select: {
+              tasks: true,
+            },
+          },
         },
       });
     } else {
