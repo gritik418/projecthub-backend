@@ -175,7 +175,23 @@ export const getProjectById = async (req: Request, res: Response) => {
           id: projectId,
         },
         include: {
-          tasks: true,
+          tasks: {
+            include: {
+              activities: true,
+              assignedDeveloper: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              project: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
           createdBy: {
             select: {
               id: true,
@@ -198,7 +214,23 @@ export const getProjectById = async (req: Request, res: Response) => {
           createdById: userId,
         },
         include: {
-          tasks: true,
+          tasks: {
+            include: {
+              activities: true,
+              assignedDeveloper: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              project: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
 
           createdBy: {
             select: {
