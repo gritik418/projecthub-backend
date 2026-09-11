@@ -116,3 +116,83 @@ export const getProjects = async (req: Request, res: Response) => {
     return raiseServerError(res, error);
   }
 };
+
+export const getProjectById = async (req: Request, res: Response) => {
+  try {
+    const userId: string | undefined = req.user?.id;
+    const userRole: UserRole | undefined = req.user?.role;
+
+    const projectId = req.params?.projectId;
+
+    if (!userId || !userRole)
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized.",
+      });
+
+    if (!projectId || typeof projectId !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Project ID is required.",
+      });
+    }
+
+    let project: Project | null = null;
+
+    if (userRole === UserRole.ADMIN) {
+      project = await prisma.project.findUnique({
+        where: {
+          id: projectId,
+        },
+        include: {
+          tasks: true,
+        },
+      });
+    } else if (userRole === UserRole.PROJECT_MANAGER) {
+      project = await prisma.project.findFirst({
+        where: {
+          id: projectId,
+          createdById: userId,
+        },
+        include: {
+          tasks: true,
+        },
+      });
+    } else {
+      project = await prisma.project.findFirst({
+        where: {
+          id: projectId,
+          tasks: {
+            some: {
+              assignedDeveloperId: userId,
+            },
+          },
+        },
+        include: {
+          tasks: {
+            where: {
+              assignedDeveloperId: userId,
+            },
+          },
+        },
+      });
+    }
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Project fetched successfully.",
+      data: {
+        project,
+      },
+    });
+  } catch (error) {
+    return raiseServerError(res, error);
+  }
+};
