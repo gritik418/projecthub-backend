@@ -1,6 +1,7 @@
 import express from "express";
 import authRoutes from "./routes/auth.routes.js";
 import userRoutes from "./routes/user.routes.js";
+import projectRoutes from "./routes/project.routes.js";
 import cookieParser from "cookie-parser";
 
 const app = express();
@@ -11,6 +12,7 @@ app.use(cookieParser());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
+app.use("/api/project", projectRoutes);
 
 app.listen(port, () => {
   console.log(`App served at port: ${port}`);

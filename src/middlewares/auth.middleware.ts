@@ -19,6 +19,13 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
 
+    if (!authHeader) {
+      return res.status(401).json({
+        success: false,
+        message: "Access token is required.",
+      });
+    }
+
     if (!authHeader?.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
