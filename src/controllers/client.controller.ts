@@ -54,3 +54,25 @@ export const createClient = async (req: Request, res: Response) => {
     return raiseServerError(res, error);
   }
 };
+
+export const getClients = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId)
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized.",
+      });
+
+    const clients = await prisma.client.findMany();
+
+    return res.status(200).json({
+      success: true,
+      message: "Clients fetched successfully.",
+      data: { clients },
+    });
+  } catch (error) {
+    return raiseServerError(res, error);
+  }
+};
