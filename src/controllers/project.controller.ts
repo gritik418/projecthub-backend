@@ -176,6 +176,19 @@ export const getProjectById = async (req: Request, res: Response) => {
         },
         include: {
           tasks: true,
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          client: true,
+          _count: {
+            select: {
+              tasks: true,
+            },
+          },
         },
       });
     } else if (userRole === UserRole.PROJECT_MANAGER) {
@@ -186,6 +199,20 @@ export const getProjectById = async (req: Request, res: Response) => {
         },
         include: {
           tasks: true,
+
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          client: true,
+          _count: {
+            select: {
+              tasks: true,
+            },
+          },
         },
       });
     } else {
