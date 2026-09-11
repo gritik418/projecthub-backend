@@ -1,11 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import raiseServerError from "../helpers/raise-server-error.js";
+import type { UserRole } from "../generated/prisma/enums.js";
 
 export interface JWT_Payload {
   id: string;
   email: string;
-  role: string;
+  role: UserRole;
 }
 
 declare module "express" {
@@ -37,7 +38,7 @@ const authMiddleware = (req: Request, res: Response, next: NextFunction) => {
     const decoded = jwt.verify(accessToken, process.env.JWT_SECRET!) as {
       id: string;
       email: string;
-      role: string;
+      role: UserRole;
     };
 
     if (!decoded.id || !decoded.email || !decoded.role) {
