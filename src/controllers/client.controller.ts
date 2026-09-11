@@ -76,3 +76,43 @@ export const getClients = async (req: Request, res: Response) => {
     return raiseServerError(res, error);
   }
 };
+
+export const getClientById = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+
+    if (!userId)
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized.",
+      });
+
+    const clientId = req.params.clientId;
+    if (!clientId || typeof clientId !== "string")
+      return res.status(400).json({
+        success: false,
+        message: "Client ID is required.",
+      });
+
+    const client = await prisma.client.findUnique({
+      where: {
+        id: clientId,
+      },
+    });
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: "Client not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Client fetched successfully.",
+      data: { client },
+    });
+  } catch (error) {
+    return raiseServerError(res, error);
+  }
+};
