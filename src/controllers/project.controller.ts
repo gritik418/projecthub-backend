@@ -4,6 +4,8 @@ import z from "zod";
 import CreateProjectSchema from "../schemas/project/create-project.schema.js";
 import raiseZodError from "../helpers/raise-zod-error.js";
 import prisma from "../db/prisma.js";
+import { UserRole } from "../generated/prisma/enums.js";
+import type { Project } from "../generated/prisma/client.js";
 
 export const createProject = async (req: Request, res: Response) => {
   try {
@@ -53,6 +55,61 @@ export const createProject = async (req: Request, res: Response) => {
       message: "Project created successfully.",
       data: {
         project,
+      },
+    });
+  } catch (error) {
+    return raiseServerError(res, error);
+  }
+};
+
+export const getProjects = async (req: Request, res: Response) => {
+  try {
+    const userId: string | undefined = req.user?.id;
+    const userRole: UserRole | undefined = req.user?.role;
+
+    if (!userId || !userRole)
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized.",
+      });
+
+    let projects: Project[] = [];
+
+    if (userRole === UserRole.ADMIN) {
+      projects = await prisma.project.findMany({
+        orderBy: {
+          updatedAt: "desc",
+        },
+      });
+    } else if (userRole === UserRole.PROJECT_MANAGER) {
+      projects = await prisma.project.findMany({
+        where: {
+          createdById: userId,
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+      });
+    } else {
+      projects = await prisma.project.findMany({
+        where: {
+          tasks: {
+            some: {
+              assignedDeveloperId: userId,
+            },
+          },
+        },
+        orderBy: {
+          updatedAt: "desc",
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Projects fetched successfully.",
+      data: {
+        projects,
       },
     });
   } catch (error) {
