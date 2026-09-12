@@ -1,3 +1,4 @@
+import "dotenv/config";
 import bcrypt from "bcrypt";
 
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -14,12 +15,12 @@ const prisma = new PrismaClient({
 const password = await bcrypt.hash("Password@123", 10);
 
 async function main() {
+  await prisma.user.deleteMany();
   await prisma.notification.deleteMany();
   await prisma.activityLog.deleteMany();
   await prisma.task.deleteMany();
   await prisma.project.deleteMany();
   await prisma.client.deleteMany();
-  await prisma.user.deleteMany();
 
   const admin = await prisma.user.create({
     data: {
