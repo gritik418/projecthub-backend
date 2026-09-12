@@ -23,9 +23,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  projectsCreated Project[]     @relation("ProjectCreator")
-  assignedTasks   Task[]        @relation("AssignedTasks")
+  projectsCreated Project[]      @relation("ProjectCreator")
+  assignedTasks   Task[]         @relation("AssignedTasks")
   activityLogs    ActivityLog[]
+  notifications   Notification[] @relation("UserNotifications")
 
   @@index([role])
 }
@@ -92,7 +93,8 @@ model Task {
   assignedDeveloperId String
   assignedDeveloper   User   @relation("AssignedTasks", fields: [assignedDeveloperId], references: [id])
 
-  activities ActivityLog[]
+  activities    ActivityLog[]
+  notifications Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -127,4 +129,32 @@ model ActivityLog {
   @@index([taskId])
   @@index([userId])
   @@index([createdAt])
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_MOVED_TO_REVIEW
+}
+
+model Notification {
+  id String @id @default(uuid())
+
+  type NotificationType
+
+  title   String
+  message String @db.Text
+
+  isRead Boolean @default(false)
+
+  userId String
+  user   User   @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
 }

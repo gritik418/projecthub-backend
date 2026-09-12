@@ -13,7 +13,7 @@ import {
 import prisma from "../db/prisma.js";
 import UpdateTaskStatusSchema from "../schemas/task/update-task-status.schema.js";
 import type { Task } from "../generated/prisma/client.js";
-import { io } from "../socket/socket.server.js";
+import { ConnectedUsers, io } from "../socket/socket.server.js";
 
 export const createTask = async (req: Request, res: Response) => {
   try {
@@ -95,17 +95,47 @@ export const createTask = async (req: Request, res: Response) => {
       });
     }
 
-    const task = await prisma.task.create({
-      data: {
-        title,
-        description: description ?? "",
-        dueDate: new Date(dueDate),
-        status,
-        priority,
-        assignedDeveloperId,
-        projectId,
-      },
+    const { task, notification } = await prisma.$transaction(async (tx) => {
+      const task = await tx.task.create({
+        data: {
+          title,
+          description: description ?? "",
+          dueDate: new Date(dueDate),
+          status,
+          priority,
+          assignedDeveloperId,
+          projectId,
+        },
+      });
+
+      const notification = await tx.notification.create({
+        data: {
+          type: "TASK_ASSIGNED",
+          title: "New task assigned",
+          message: `You have been assigned the task "${task.title}".`,
+          userId: assignedDeveloperId,
+          taskId: task.id,
+          isRead: false,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return { task, notification };
     });
+
+    const developerSocket = ConnectedUsers.get(assignedDeveloperId);
+
+    if (developerSocket) {
+      developerSocket.emit("new-notification", notification);
+    }
 
     return res.status(201).json({
       success: true,
@@ -269,6 +299,14 @@ export const updateTaskStatus = async (req: Request, res: Response) => {
           id: taskId,
           assignedDeveloperId: userId,
         },
+        include: {
+          project: {
+            select: {
+              id: true,
+              createdById: true,
+            },
+          },
+        },
       });
     } else if (userRole === UserRole.PROJECT_MANAGER) {
       task = await prisma.task.findUnique({
@@ -278,11 +316,27 @@ export const updateTaskStatus = async (req: Request, res: Response) => {
             createdById: userId,
           },
         },
+        include: {
+          project: {
+            select: {
+              id: true,
+              createdById: true,
+            },
+          },
+        },
       });
     } else {
       task = await prisma.task.findUnique({
         where: {
           id: taskId,
+        },
+        include: {
+          project: {
+            select: {
+              id: true,
+              createdById: true,
+            },
+          },
         },
       });
     }
@@ -301,55 +355,76 @@ export const updateTaskStatus = async (req: Request, res: Response) => {
       });
     }
 
-    const { activity, updatedTask } = await prisma.$transaction(async (tx) => {
-      const updatedTask = await tx.task.update({
-        where: {
-          id: taskId,
-        },
-        data: {
-          status,
-        },
-      });
-
-      const activity = await tx.activityLog.create({
-        data: {
-          type: "STATUS_CHANGED",
-          newStatus: status,
-          oldStatus: task.status,
-          taskId,
-          userId,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              role: true,
+    const { activity, updatedTask, notification } = await prisma.$transaction(
+      async (tx) => {
+        const updatedTask = await tx.task.update({
+          where: {
+            id: taskId,
+          },
+          data: {
+            status,
+          },
+          include: {
+            project: {
+              select: {
+                createdById: true,
+              },
             },
           },
-          task: {
-            select: {
-              id: true,
-              title: true,
-              assignedDeveloper: {
-                select: {
-                  id: true,
-                  name: true,
-                  email: true,
-                  role: true,
+        });
+
+        const activity = await tx.activityLog.create({
+          data: {
+            type: "STATUS_CHANGED",
+            newStatus: status,
+            oldStatus: task.status,
+            taskId,
+            userId,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+              },
+            },
+            task: {
+              select: {
+                id: true,
+                title: true,
+                assignedDeveloper: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                  },
                 },
               },
             },
           },
-        },
-      });
+        });
 
-      return {
-        updatedTask,
-        activity,
-      };
-    });
+        const notification = await tx.notification.create({
+          data: {
+            type: "TASK_MOVED_TO_REVIEW",
+            title: "Task moved to review.",
+            message: `The task "${task.title}" has been moved to In Review.`,
+            userId: updatedTask.project.createdById,
+            taskId: task.id,
+            isRead: false,
+          },
+        });
+
+        return {
+          updatedTask,
+          activity,
+          notification,
+        };
+      },
+    );
 
     io.to(`project:${task.projectId}`).emit("task-status-updated", {
       taskId: updatedTask.id,
@@ -357,6 +432,12 @@ export const updateTaskStatus = async (req: Request, res: Response) => {
       status: updatedTask.status,
       activity: activity,
     });
+
+    const pmSocket = ConnectedUsers.get(updatedTask.project.createdById);
+
+    if (pmSocket) {
+      io.to(pmSocket.id).emit("new-notification", notification);
+    }
 
     return res.status(200).json({
       success: false,
