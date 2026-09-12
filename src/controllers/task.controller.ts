@@ -319,6 +319,30 @@ export const updateTaskStatus = async (req: Request, res: Response) => {
           taskId,
           userId,
         },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+          task: {
+            select: {
+              id: true,
+              title: true,
+              assignedDeveloper: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true,
+                },
+              },
+            },
+          },
+        },
       });
 
       return {

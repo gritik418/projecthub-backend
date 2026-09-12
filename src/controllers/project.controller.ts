@@ -5,7 +5,7 @@ import CreateProjectSchema from "../schemas/project/create-project.schema.js";
 import raiseZodError from "../helpers/raise-zod-error.js";
 import prisma from "../db/prisma.js";
 import { UserRole } from "../generated/prisma/enums.js";
-import type { Project } from "../generated/prisma/client.js";
+import type { ActivityLog, Project } from "../generated/prisma/client.js";
 
 export const createProject = async (req: Request, res: Response) => {
   try {
@@ -191,6 +191,9 @@ export const getProjectById = async (req: Request, res: Response) => {
                 },
               },
             },
+            orderBy: {
+              dueDate: "asc",
+            },
           },
           createdBy: {
             select: {
@@ -229,6 +232,9 @@ export const getProjectById = async (req: Request, res: Response) => {
                   name: true,
                 },
               },
+            },
+            orderBy: {
+              dueDate: "asc",
             },
           },
 
@@ -277,6 +283,9 @@ export const getProjectById = async (req: Request, res: Response) => {
                 },
               },
             },
+            orderBy: {
+              dueDate: "asc",
+            },
           },
           _count: {
             select: {
@@ -304,6 +313,146 @@ export const getProjectById = async (req: Request, res: Response) => {
       data: {
         project,
       },
+    });
+  } catch (error) {
+    return raiseServerError(res, error);
+  }
+};
+
+export const getProjectActivity = async (req: Request, res: Response) => {
+  try {
+    const userId: string | undefined = req.user?.id;
+    const userRole: UserRole | undefined = req.user?.role;
+
+    const projectId = req.params?.projectId;
+
+    if (!userId || !userRole)
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized.",
+      });
+
+    if (!projectId || typeof projectId !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Project ID is required.",
+      });
+    }
+
+    let project: Project | null = null;
+
+    if (UserRole.ADMIN) {
+      project = await prisma.project.findUnique({
+        where: {
+          id: projectId,
+        },
+      });
+    } else if (UserRole.PROJECT_MANAGER) {
+      project = await prisma.project.findUnique({
+        where: {
+          id: projectId,
+          createdById: userId,
+        },
+      });
+    } else {
+      project = await prisma.project.findUnique({
+        where: {
+          id: projectId,
+          tasks: {
+            some: {
+              assignedDeveloperId: userId,
+            },
+          },
+        },
+      });
+    }
+
+    if (!project) {
+      return res.status(404).json({
+        success: false,
+        message: "Project not found or you don't have access.",
+      });
+    }
+
+    let activities: ActivityLog[] = [];
+
+    if (UserRole.ADMIN || UserRole.PROJECT_MANAGER) {
+      activities = await prisma.activityLog.findMany({
+        where: {
+          task: {
+            projectId,
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+          task: {
+            select: {
+              id: true,
+              title: true,
+              assignedDeveloper: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+    } else {
+      activities = await prisma.activityLog.findMany({
+        where: {
+          task: {
+            projectId,
+            assignedDeveloperId: userId,
+          },
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+          task: {
+            select: {
+              id: true,
+              title: true,
+              assignedDeveloper: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  role: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Activity logs fetched successfully.",
+      data: { activities },
     });
   } catch (error) {
     return raiseServerError(res, error);

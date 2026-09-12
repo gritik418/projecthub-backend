@@ -27,14 +27,11 @@ const socketServer = (
     try {
       const authorization = socket.handshake.auth.token;
 
-      console.log("first", authorization);
-
       if (!authorization?.startsWith("Bearer ")) {
         return next(new Error("Unauthorized"));
       }
 
       const accessToken = authorization.split(" ")[1];
-      console.log("accessToken", accessToken);
 
       if (!accessToken) {
         return next(new Error("Unauthorized"));
@@ -65,8 +62,6 @@ const socketServer = (
   io.on("connection", (socket) => {
     const user = socket.data.user;
 
-    console.log("connected", user.email);
-
     ConnectedUsers.set(user.id, socket);
 
     if (user.role === "ADMIN") {
@@ -74,6 +69,14 @@ const socketServer = (
     }
 
     emitActiveUsers(io);
+
+    socket.on("join-project", (projectId: string) => {
+      socket.join(`project:${projectId}`);
+    });
+
+    socket.on("leave-project", (projectId: string) => {
+      socket.leave(`project:${projectId}`);
+    });
 
     socket.on("disconnect", () => {
       console.log("disconnected", user.email);

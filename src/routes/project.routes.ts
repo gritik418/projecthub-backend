@@ -4,6 +4,7 @@ import authorize from "../middlewares/authorize.middleware.js";
 import { UserRole } from "../generated/prisma/enums.js";
 import {
   createProject,
+  getProjectActivity,
   getProjectById,
   getProjects,
 } from "../controllers/project.controller.js";
@@ -20,5 +21,7 @@ router.post(
 router.get("/", authMiddleware, getProjects);
 
 router.get("/:projectId", authMiddleware, getProjectById);
+
+router.get("/:projectId/activity", authMiddleware, getProjectActivity);
 
 export default router;
