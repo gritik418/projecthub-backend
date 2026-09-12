@@ -10,6 +10,9 @@ import cors from "cors";
 const app = express();
 const port = process.env.PORT || 8000;
 
+import { startTaskJobs } from "./jobs/task.job.js";
+import "./workers/task.worker.js";
+
 app.use(
   cors({
     origin: ["http://localhost:5173"],
@@ -24,6 +27,8 @@ app.use("/api/user", userRoutes);
 app.use("/api/project", projectRoutes);
 app.use("/api/client", clientRoutes);
 app.use("/api/task", taskRoutes);
+
+await startTaskJobs();
 
 app.listen(port, () => {
   console.log(`App served at port: ${port}`);
