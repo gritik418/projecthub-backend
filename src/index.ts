@@ -4,6 +4,8 @@ import userRoutes from "./routes/user.routes.js";
 import projectRoutes from "./routes/project.routes.js";
 import clientRoutes from "./routes/client.routes.js";
 import taskRoutes from "./routes/task.routes.js";
+import dashboardRoutes from "./routes/dashboard.routes.js";
+
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import http from "http";
@@ -32,6 +34,7 @@ app.use("/api/user", userRoutes);
 app.use("/api/project", projectRoutes);
 app.use("/api/client", clientRoutes);
 app.use("/api/task", taskRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 
 await startTaskJobs();
 
