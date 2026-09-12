@@ -262,6 +262,30 @@ export const getProjectById = async (req: Request, res: Response) => {
             where: {
               assignedDeveloperId: userId,
             },
+            include: {
+              activities: true,
+              assignedDeveloper: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                },
+              },
+              project: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              tasks: {
+                where: {
+                  assignedDeveloperId: userId,
+                },
+              },
+            },
           },
         },
       });

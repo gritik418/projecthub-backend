@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 import type { UserRole } from "../generated/prisma/enums.js";
 
 export const ConnectedUsers = new Map<string, Socket>();
+export let io: Server;
 
 const socketServer = (
   httpServer: http.Server<
@@ -12,7 +13,7 @@ const socketServer = (
     typeof http.ServerResponse
   >,
 ) => {
-  const io = new Server(httpServer, {
+  io = new Server(httpServer, {
     cors: {
       origin: process.env.FRONTEND_URL,
       credentials: true,

@@ -17,18 +17,8 @@ router.post(
   createProject,
 );
 
-router.get(
-  "/",
-  authMiddleware,
-  authorize(UserRole.ADMIN, UserRole.PROJECT_MANAGER),
-  getProjects,
-);
+router.get("/", authMiddleware, getProjects);
 
-router.get(
-  "/:projectId",
-  authMiddleware,
-  authorize(UserRole.ADMIN, UserRole.PROJECT_MANAGER),
-  getProjectById,
-);
+router.get("/:projectId", authMiddleware, getProjectById);
 
 export default router;

@@ -11,6 +11,9 @@ import {
   UserRole,
 } from "../generated/prisma/enums.js";
 import prisma from "../db/prisma.js";
+import UpdateTaskStatusSchema from "../schemas/task/update-task-status.schema.js";
+import type { Task } from "../generated/prisma/client.js";
+import { io } from "../socket/socket.server.js";
 
 export const createTask = async (req: Request, res: Response) => {
   try {
@@ -221,6 +224,119 @@ export const getTasks = async (req: Request, res: Response) => {
       data: {
         tasks,
       },
+    });
+  } catch (error) {
+    return raiseServerError(res, error);
+  }
+};
+
+export const updateTaskStatus = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    const taskId = req.params?.taskId;
+
+    const rawData = req.body;
+
+    if (!userId || !userRole) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized.",
+      });
+    }
+
+    if (!taskId || typeof taskId !== "string") {
+      return res.status(400).json({
+        success: false,
+        message: "Task ID is required.",
+      });
+    }
+
+    const result = z.safeParse(UpdateTaskStatusSchema, rawData);
+
+    if (!result.success) {
+      return raiseZodError(result.error, res);
+    }
+
+    const { status } = result.data;
+
+    let task: Task | null = null;
+
+    if (userRole === UserRole.DEVELOPER) {
+      task = await prisma.task.findUnique({
+        where: {
+          id: taskId,
+          assignedDeveloperId: userId,
+        },
+      });
+    } else if (userRole === UserRole.PROJECT_MANAGER) {
+      task = await prisma.task.findUnique({
+        where: {
+          id: taskId,
+          project: {
+            createdById: userId,
+          },
+        },
+      });
+    } else {
+      task = await prisma.task.findUnique({
+        where: {
+          id: taskId,
+        },
+      });
+    }
+
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: "Task not found or you do not have permission.",
+      });
+    }
+
+    if (task.status === "DONE") {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot change status if done.",
+      });
+    }
+
+    const { activity, updatedTask } = await prisma.$transaction(async (tx) => {
+      const updatedTask = await tx.task.update({
+        where: {
+          id: taskId,
+        },
+        data: {
+          status,
+        },
+      });
+
+      const activity = await tx.activityLog.create({
+        data: {
+          type: "STATUS_CHANGED",
+          newStatus: status,
+          oldStatus: task.status,
+          taskId,
+          userId,
+        },
+      });
+
+      return {
+        updatedTask,
+        activity,
+      };
+    });
+
+    io.to(`project:${task.projectId}`).emit("task-status-updated", {
+      taskId: updatedTask.id,
+      projectId: task.projectId,
+      status: updatedTask.status,
+      activity: activity,
+    });
+
+    return res.status(200).json({
+      success: false,
+      message: "Task status updated successfully.",
     });
   } catch (error) {
     return raiseServerError(res, error);
