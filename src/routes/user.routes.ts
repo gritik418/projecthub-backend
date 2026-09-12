@@ -2,9 +2,11 @@ import { Router } from "express";
 import authMiddleware from "../middlewares/auth.middleware.js";
 import authorize from "../middlewares/authorize.middleware.js";
 import { UserRole } from "../generated/prisma/enums.js";
-import { getDevelopers } from "../controllers/user.controller.js";
+import { getAllUsers, getDevelopers } from "../controllers/user.controller.js";
 
 const router = Router();
+
+router.get("/", authMiddleware, authorize(UserRole.ADMIN), getAllUsers);
 
 router.get(
   "/developers",

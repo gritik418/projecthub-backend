@@ -4,6 +4,7 @@ import prisma from "../db/prisma.js";
 import raiseServerError from "../helpers/raise-server-error.js";
 import raiseZodError from "../helpers/raise-zod-error.js";
 import CreateClientSchema from "../schemas/client/create-client.schema.js";
+import { UserRole, type Client } from "../generated/prisma/client.js";
 
 export const createClient = async (req: Request, res: Response) => {
   try {
@@ -58,14 +59,46 @@ export const createClient = async (req: Request, res: Response) => {
 export const getClients = async (req: Request, res: Response) => {
   try {
     const userId = req.user?.id;
+    const userRole = req.user?.role;
 
-    if (!userId)
+    if (!userId || !userRole)
       return res.status(401).json({
         success: false,
         message: "Unauthorized.",
       });
 
-    const clients = await prisma.client.findMany();
+    let clients: Client[] = [];
+
+    if (userRole === UserRole.ADMIN) {
+      clients = await prisma.client.findMany({
+        include: {
+          _count: {
+            select: {
+              projects: true,
+            },
+          },
+        },
+      });
+    } else if (userRole === UserRole.PROJECT_MANAGER) {
+      clients = await prisma.client.findMany({
+        include: {
+          _count: {
+            select: {
+              projects: {
+                where: {
+                  createdById: userId,
+                },
+              },
+            },
+          },
+        },
+      });
+    } else {
+      return res.status(409).json({
+        success: false,
+        message: "You are not authorized to view clients.",
+      });
+    }
 
     return res.status(200).json({
       success: true,

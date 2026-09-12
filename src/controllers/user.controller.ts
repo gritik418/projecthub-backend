@@ -41,3 +41,47 @@ export const getDevelopers = async (req: Request, res: Response) => {
     return raiseServerError(res, error);
   }
 };
+
+export const getAllUsers = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    if (!userId || !userRole)
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized.",
+      });
+
+    if (userRole !== UserRole.ADMIN) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have permission to list users.",
+      });
+    }
+
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        _count: {
+          select: {
+            assignedTasks: true,
+          },
+        },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Users fetched successfully.",
+      data: {
+        users,
+      },
+    });
+  } catch (error) {
+    return raiseServerError(res, error);
+  }
+};
